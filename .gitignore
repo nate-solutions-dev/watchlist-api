@@ -1,0 +1,6 @@
+# .gitignore
+.env
+*.exe
+*.test
+/tmp
+.DS_Store
