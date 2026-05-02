@@ -44,10 +44,11 @@ func main() {
 	authService := service.NewAuthService(authRepo, cfg, tmdbService)
 	watchListService := service.NewWatchListService(watchListRepo, tmdbService)
 
+	healthController := controller.NewHealthController()
 	authController := controller.NewAuthController(authService)
 	watchListController := controller.NewWatchListController(watchListService)
 
-	r := router.NewRouter(cfg, authController, watchListController)
+	r := router.NewRouter(cfg, healthController, authController, watchListController)
 
 	if err := r.Run(":" + cfg.Port); err != nil {
 		log.Fatalf("run server: %v", err)

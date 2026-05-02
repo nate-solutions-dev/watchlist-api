@@ -4,3 +4,6 @@
 *.test
 /tmp
 .DS_Store
+.ai
+.cursorrules
+.cursor
