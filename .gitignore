@@ -1,9 +1,25 @@
 # .gitignore
 .env
+
+# Go build / test / coverage
 *.exe
 *.test
+vendor/
+bin/
+dist/
+coverage.out
+coverage.html
+*.coverprofile
+
 /tmp
+
+# OS
 .DS_Store
+
+# Editors
+.vscode/
+.idea/
+
 .ai
 .cursorrules
 .cursor
