@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/joho/godotenv"
 )
@@ -24,7 +25,7 @@ func Load() (*Config, error) {
 	cfg := &Config{
 		DatabaseURL:     os.Getenv("DATABASE_URL"),
 		JWTSecret:       os.Getenv("JWT_SECRET"),
-		Port:            os.Getenv("PORT"),
+		Port:            strings.TrimSpace(os.Getenv("PORT")),
 		TMDBAccessToken: os.Getenv("TMDB_ACCESS_TOKEN"),
 		TMDBUsername:    os.Getenv("TMDB_USERNAME"),
 		TMDBPassword:    os.Getenv("TMDB_PASSWORD"),

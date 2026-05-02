@@ -50,6 +50,8 @@ func main() {
 
 	r := router.NewRouter(cfg, healthController, authController, watchListController)
 
+	logger.Info(context.Background(), "main", "server starting", "port", cfg.Port, "env", cfg.Environment)
+
 	if err := r.Run(":" + cfg.Port); err != nil {
 		log.Fatalf("run server: %v", err)
 	}
