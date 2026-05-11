@@ -6,15 +6,20 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/Friel909/watchlist-api/config"
+	dto "github.com/Friel909/watchlist-api/internal/dto"
 	"github.com/Friel909/watchlist-api/internal/logger"
 )
 
 type TMDBService interface {
 	FetchMetadata(ctx context.Context, tmdbID int, mediaType string) (title string, posterURL string, genres []string, err error)
 	GetSessionToken(ctx context.Context) (string, error)
+	SearchTitles(ctx context.Context, query string, mediaType string, page int) (*dto.TMDBListResponse, error)
+	GetTrending(ctx context.Context, mediaType string, page int) (*dto.TMDBListResponse, error)
 }
 
 type tmdbService struct {
@@ -26,46 +31,19 @@ func NewTMDBService(cfg *config.Config) TMDBService {
 	return &tmdbService{cfg: cfg}
 }
 
-type tmdbGenre struct {
-	Name string `json:"name"`
-}
-
-type tmdbDetailResponse struct {
-	Title      string      `json:"title"`
-	Name       string      `json:"name"`
-	PosterPath string      `json:"poster_path"`
-	Genres     []tmdbGenre `json:"genres"`
-}
-
-type tmdbRequestTokenResponse struct {
-	RequestToken string `json:"request_token"`
-	Success      bool   `json:"success"`
-}
-
-type tmdbSessionResponse struct {
-	SessionID string `json:"session_id"`
-	Success   bool   `json:"success"`
-}
-
-type tmdbErrorResponse struct {
-	StatusCode    int    `json:"status_code"`
-	StatusMessage string `json:"status_message"`
-	Success       bool   `json:"success"`
-}
-
 // FetchMetadata gets title, poster url, and genres from TMDB detail endpoint.
 func (s *tmdbService) FetchMetadata(ctx context.Context, tmdbID int, mediaType string) (string, string, []string, error) {
 	if s.cfg.TMDBAccessToken == "" {
 		return "", "", nil, fmt.Errorf("TMDB_ACCESS_TOKEN is required")
 	}
 
-	url := fmt.Sprintf("https://api.themoviedb.org/3/%s/%d", mediaType, tmdbID)
+	url := fmt.Sprintf("https://api.themoviedb.org/3/%s/%d", tmdbMediaType(mediaType), tmdbID)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return "", "", nil, fmt.Errorf("build tmdb request: %w", err)
 	}
 
-	var payload tmdbDetailResponse
+	var payload dto.TMDBDetailResponse
 	if err := s.doTMDBRequest(req, &payload); err != nil {
 		return "", "", nil, err
 	}
@@ -86,6 +64,59 @@ func (s *tmdbService) FetchMetadata(ctx context.Context, tmdbID int, mediaType s
 	}
 
 	return title, posterURL, genres, nil
+}
+
+// SearchTitles searches TMDB titles by query and media type.
+func (s *tmdbService) SearchTitles(ctx context.Context, query string, mediaType string, page int) (*dto.TMDBListResponse, error) {
+	if s.cfg.TMDBAccessToken == "" {
+		return nil, fmt.Errorf("TMDB_ACCESS_TOKEN is required")
+	}
+
+	if page < 1 {
+		page = 1
+	}
+
+	tmdbType := tmdbMediaType(mediaType)
+	escapedQuery := url.QueryEscape(query)
+	endpoint := fmt.Sprintf("https://api.themoviedb.org/3/search/%s?query=%s&page=%d", tmdbType, escapedQuery, page)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	if err != nil {
+		return nil, fmt.Errorf("build tmdb search request: %w", err)
+	}
+
+	var payload dto.TMDBListPayload
+	if err := s.doTMDBRequest(req, &payload); err != nil {
+		return nil, err
+	}
+
+	return mapTMDBListResponse(payload, tmdbType), nil
+}
+
+// GetTrending fetches weekly TMDB trending titles for media type.
+func (s *tmdbService) GetTrending(ctx context.Context, mediaType string, page int) (*dto.TMDBListResponse, error) {
+	if s.cfg.TMDBAccessToken == "" {
+		return nil, fmt.Errorf("TMDB_ACCESS_TOKEN is required")
+	}
+
+	if page < 1 {
+		page = 1
+	}
+
+	tmdbType := tmdbMediaType(mediaType)
+	endpoint := fmt.Sprintf("https://api.themoviedb.org/3/trending/%s/week?page=%d", tmdbType, page)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	if err != nil {
+		return nil, fmt.Errorf("build tmdb trending request: %w", err)
+	}
+
+	var payload dto.TMDBListPayload
+	if err := s.doTMDBRequest(req, &payload); err != nil {
+		return nil, err
+	}
+
+	return mapTMDBListResponse(payload, tmdbType), nil
 }
 
 // GetSessionToken creates a TMDB session token using configured TMDB credentials.
@@ -117,7 +148,7 @@ func (s *tmdbService) createRequestToken(ctx context.Context) (string, error) {
 		return "", fmt.Errorf("build tmdb request token request: %w", err)
 	}
 
-	var respPayload tmdbRequestTokenResponse
+	var respPayload dto.TMDBRequestTokenResponse
 	if err := s.doTMDBRequest(req, &respPayload); err != nil {
 		return "", err
 	}
@@ -145,7 +176,7 @@ func (s *tmdbService) validateWithLogin(ctx context.Context, requestToken string
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	var respPayload tmdbRequestTokenResponse
+	var respPayload dto.TMDBRequestTokenResponse
 	if err := s.doTMDBRequest(req, &respPayload); err != nil {
 		return "", err
 	}
@@ -171,7 +202,7 @@ func (s *tmdbService) createSession(ctx context.Context, requestToken string) (s
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	var respPayload tmdbSessionResponse
+	var respPayload dto.TMDBSessionResponse
 	if err := s.doTMDBRequest(req, &respPayload); err != nil {
 		return "", err
 	}
@@ -198,7 +229,7 @@ func (s *tmdbService) doTMDBRequest(req *http.Request, target any) error {
 	logger.Info(req.Context(), "TMDBClient.DoRequest", "request completed", "url", req.URL.String(), "status", resp.StatusCode, "duration", time.Since(start).String())
 
 	if resp.StatusCode >= 400 {
-		var tmdbErr tmdbErrorResponse
+		var tmdbErr dto.TMDBErrorResponse
 		if err := json.NewDecoder(resp.Body).Decode(&tmdbErr); err == nil && tmdbErr.StatusMessage != "" {
 			logger.Warn(req.Context(), "TMDBClient.DoRequest", "tmdb returned error", "status", tmdbErr.StatusCode)
 			return fmt.Errorf("tmdb error %d: %s", tmdbErr.StatusCode, tmdbErr.StatusMessage)
@@ -213,4 +244,78 @@ func (s *tmdbService) doTMDBRequest(req *http.Request, target any) error {
 	}
 
 	return nil
+}
+
+// tmdbMediaType converts internal media types into TMDB media types.
+func tmdbMediaType(internal string) string {
+	switch strings.ToLower(internal) {
+	case "movie":
+		return "movie"
+	case "show":
+		return "tv"
+	default:
+		return internal
+	}
+}
+
+// internalMediaType converts TMDB media types into internal media types.
+func internalMediaType(tmdbType string) string {
+	switch strings.ToLower(tmdbType) {
+	case "tv":
+		return "show"
+	case "movie":
+		return "movie"
+	default:
+		return tmdbType
+	}
+}
+
+// mapTMDBListResponse maps TMDB list payloads to API response shape.
+func mapTMDBListResponse(payload dto.TMDBListPayload, fallbackTMDBType string) *dto.TMDBListResponse {
+	results := make([]dto.TitleResult, 0, len(payload.Results))
+	for _, item := range payload.Results {
+		title := item.Title
+		if title == "" {
+			title = item.Name
+		}
+
+		year := extractYear(item.ReleaseDate)
+		if year == "" {
+			year = extractYear(item.FirstAirDate)
+		}
+
+		posterURL := ""
+		if item.PosterPath != "" {
+			posterURL = "https://image.tmdb.org/t/p/w500" + item.PosterPath
+		}
+
+		rawType := item.MediaType
+		if rawType == "" {
+			rawType = fallbackTMDBType
+		}
+
+		results = append(results, dto.TitleResult{
+			TMDBID:      item.ID,
+			MediaType:   internalMediaType(rawType),
+			Title:       title,
+			PosterURL:   posterURL,
+			Year:        year,
+			Overview:    item.Overview,
+			VoteAverage: item.VoteAverage,
+		})
+	}
+
+	return &dto.TMDBListResponse{
+		Page:       payload.Page,
+		TotalPages: payload.TotalPages,
+		Results:    results,
+	}
+}
+
+// extractYear returns YYYY from a date string in YYYY-MM-DD format.
+func extractYear(date string) string {
+	if len(date) < 4 {
+		return ""
+	}
+	return date[:4]
 }

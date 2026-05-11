@@ -47,8 +47,9 @@ func main() {
 	healthController := controller.NewHealthController()
 	authController := controller.NewAuthController(authService)
 	watchListController := controller.NewWatchListController(watchListService)
+	discoverController := controller.NewDiscoverController(tmdbService)
 
-	r := router.NewRouter(cfg, healthController, authController, watchListController)
+	r := router.NewRouter(cfg, healthController, authController, watchListController, discoverController)
 
 	logger.Info(context.Background(), "main", "server starting", "port", cfg.Port, "env", cfg.Environment)
 

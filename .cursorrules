@@ -22,3 +22,6 @@ Rules:
 - Passwords hashed with bcrypt, never stored plain
 - JWT secret from config only, never hardcoded
 - Column names SCREAMING_SNAKE_CASE in SQL, no double quotes
+
+## Code Organization
+- When ADDING new functions or methods to an EXISTING file, place them BELOW all existing fun ctions in the file (append at the bottom), unless the new function is a tightly coupled helper for an existing function (in which case place it immediately after that function). When CREATING a new file, organize it logically (constructor first, then public methods, then private helpers) — do not apply the append-bottom rule to new files.

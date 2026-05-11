@@ -8,7 +8,7 @@ import (
 )
 
 // NewRouter registers middlewares and all public/private API routes.
-func NewRouter(cfg *config.Config, healthController *controller.HealthController, authController *controller.AuthController, watchListController *controller.WatchListController) *gin.Engine {
+func NewRouter(cfg *config.Config, healthController *controller.HealthController, authController *controller.AuthController, watchListController *controller.WatchListController, discoverController *controller.DiscoverController) *gin.Engine {
 	r := gin.New()
 	r.Use(middleware.RequestID(), gin.Logger(), gin.Recovery())
 
@@ -28,6 +28,8 @@ func NewRouter(cfg *config.Config, healthController *controller.HealthController
 		private.POST("/watchlist", watchListController.Create)
 		private.PATCH("/watchlist/:id", watchListController.Update)
 		private.DELETE("/watchlist/:id", watchListController.Delete)
+		private.GET("/search", discoverController.SearchTitles)
+		private.GET("/discover/trending", discoverController.GetTrending)
 	}
 
 	return r
