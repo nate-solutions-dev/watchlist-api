@@ -102,6 +102,7 @@ func (ac *AuthController) Login(c *gin.Context) {
 func (ac *AuthController) Me(c *gin.Context) {
 	callerID, _ := c.Get("caller_id")
 	callerUsername, _ := c.Get("caller_username")
+	callerEmail, _ := c.Get("caller_email")
 
 	c.JSON(http.StatusOK, dto.Response{
 		Message:  "success",
@@ -109,6 +110,7 @@ func (ac *AuthController) Me(c *gin.Context) {
 		Result: gin.H{
 			"user_data_id": callerID,
 			"username":     callerUsername,
+			"email":        callerEmail,
 		},
 	})
 }
