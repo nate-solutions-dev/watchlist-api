@@ -23,4 +23,5 @@ type AuthResponse struct {
 type MeResponse struct {
 	UserDataID string `json:"user_data_id"`
 	Username   string `json:"username"`
+	Email      string `json:"email"`
 }

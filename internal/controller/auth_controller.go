@@ -100,17 +100,27 @@ func (ac *AuthController) Login(c *gin.Context) {
 // @Failure      401            {object}  dto.Response
 // @Router       /private/auth/me [get]
 func (ac *AuthController) Me(c *gin.Context) {
-	callerID, _ := c.Get("caller_id")
-	callerUsername, _ := c.Get("caller_username")
-	callerEmail, _ := c.Get("caller_email")
+	callerID := c.GetString("caller_id")
+
+	resp, err := ac.authService.Me(c.Request.Context(), callerID)
+	if err != nil {
+		status := http.StatusInternalServerError
+		message := "failed to fetch user profile"
+		if err.Error() == "user not found" {
+			status = http.StatusNotFound
+			message = "user not found"
+		}
+		c.JSON(status, dto.Response{
+			Message:  message,
+			Response: status,
+			Result:   nil,
+		})
+		return
+	}
 
 	c.JSON(http.StatusOK, dto.Response{
 		Message:  "success",
 		Response: http.StatusOK,
-		Result: gin.H{
-			"user_data_id": callerID,
-			"username":     callerUsername,
-			"email":        callerEmail,
-		},
+		Result:   resp,
 	})
 }

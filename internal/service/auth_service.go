@@ -22,6 +22,7 @@ import (
 type AuthService interface {
 	Register(ctx context.Context, req dto.RegisterRequest) error
 	Login(ctx context.Context, req dto.LoginRequest) (*dto.AuthResponse, error)
+	Me(ctx context.Context, userDataID string) (*dto.MeResponse, error)
 }
 
 type authService struct {
@@ -109,6 +110,23 @@ func (s *authService) Login(ctx context.Context, req dto.LoginRequest) (*dto.Aut
 		Username:      user.UserName,
 		Email:         user.Email,
 		TMDBSessionID: tmdbSessionID,
+	}, nil
+}
+
+// Me returns the authenticated user's profile loaded from the database.
+func (s *authService) Me(ctx context.Context, userDataID string) (*dto.MeResponse, error) {
+	user, err := s.authRepo.GetUserByID(ctx, userDataID)
+	if err != nil {
+		return nil, err
+	}
+	if user == nil {
+		return nil, errors.New("user not found")
+	}
+
+	return &dto.MeResponse{
+		UserDataID: user.UserDataID,
+		Username:   user.UserName,
+		Email:      user.Email,
 	}, nil
 }
 

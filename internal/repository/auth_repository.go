@@ -15,6 +15,7 @@ import (
 type AuthRepository interface {
 	CreateUser(ctx context.Context, user model.User, actorUsername string) error
 	GetUserByEmail(ctx context.Context, email string) (*model.User, error)
+	GetUserByID(ctx context.Context, userDataID string) (*model.User, error)
 }
 
 type authRepository struct {
@@ -87,6 +88,41 @@ func (r *authRepository) GetUserByEmail(ctx context.Context, email string) (*mod
 			return nil, nil
 		}
 		return nil, fmt.Errorf("get user by email: %w", err)
+	}
+
+	return &user, nil
+}
+
+// GetUserByID fetches one user row by USER_DATA_ID.
+func (r *authRepository) GetUserByID(ctx context.Context, userDataID string) (*model.User, error) {
+	query := `
+		SELECT USER_DATA_ID, USER_NAME, PASSWORD, EMAIL, REGION, PREFERRED_GENRES,
+		       AVATAR_URL, BIO, USR_CRT, USR_UPD, DTM_CRT, DTM_UPD
+		FROM USER_DATA
+		WHERE USER_DATA_ID = $1
+		LIMIT 1
+	`
+
+	var user model.User
+	err := r.pool.QueryRow(ctx, query, userDataID).Scan(
+		&user.UserDataID,
+		&user.UserName,
+		&user.Password,
+		&user.Email,
+		&user.Region,
+		&user.PreferredGenres,
+		&user.AvatarURL,
+		&user.Bio,
+		&user.UsrCrt,
+		&user.UsrUpd,
+		&user.DtmCrt,
+		&user.DtmUpd,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("get user by id: %w", err)
 	}
 
 	return &user, nil
