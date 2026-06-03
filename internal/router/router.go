@@ -36,6 +36,7 @@ func NewRouter(cfg *config.Config, healthController *controller.HealthController
 		AllowCredentials: false,
 		MaxAge:           12 * time.Hour,
 	}))
+	r.Use(middleware.SecurityHeaders())
 	r.Use(middleware.RequestID(), gin.Logger(), gin.Recovery())
 
 	r.GET("/health", healthController.Health)
