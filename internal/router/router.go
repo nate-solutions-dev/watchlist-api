@@ -56,6 +56,7 @@ func NewRouter(cfg *config.Config, healthController *controller.HealthController
 		private.DELETE("/watchlist/:id", watchListController.Delete)
 		private.GET("/search", discoverController.SearchTitles)
 		private.GET("/discover/trending", discoverController.GetTrending)
+		private.GET("/discover/popular", discoverController.GetPopular)
 	}
 
 	return r

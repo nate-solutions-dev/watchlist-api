@@ -20,6 +20,7 @@ type TMDBService interface {
 	GetSessionToken(ctx context.Context) (string, error)
 	SearchTitles(ctx context.Context, query string, mediaType string, page int) (*dto.TMDBListResponse, error)
 	GetTrending(ctx context.Context, mediaType string, page int) (*dto.TMDBListResponse, error)
+	GetPopular(ctx context.Context, mediaType string, page int) (*dto.TMDBListResponse, error)
 }
 
 type tmdbService struct {
@@ -109,6 +110,32 @@ func (s *tmdbService) GetTrending(ctx context.Context, mediaType string, page in
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
 		return nil, fmt.Errorf("build tmdb trending request: %w", err)
+	}
+
+	var payload dto.TMDBListPayload
+	if err := s.doTMDBRequest(req, &payload); err != nil {
+		return nil, err
+	}
+
+	return mapTMDBListResponse(payload, tmdbType), nil
+}
+
+// GetPopular fetches the current popular titles for a media type from TMDB.
+func (s *tmdbService) GetPopular(ctx context.Context, mediaType string, page int) (*dto.TMDBListResponse, error) {
+	if s.cfg.TMDBAccessToken == "" {
+		return nil, fmt.Errorf("TMDB_ACCESS_TOKEN is required")
+	}
+
+	if page < 1 {
+		page = 1
+	}
+
+	tmdbType := tmdbMediaType(mediaType)
+	endpoint := fmt.Sprintf("https://api.themoviedb.org/3/%s/popular?page=%d", tmdbType, page)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	if err != nil {
+		return nil, fmt.Errorf("build tmdb popular request: %w", err)
 	}
 
 	var payload dto.TMDBListPayload
