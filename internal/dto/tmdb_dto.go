@@ -33,6 +33,7 @@ type TMDBListItem struct {
 	Title        string  `json:"title"`
 	Name         string  `json:"name"`
 	PosterPath   string  `json:"poster_path"`
+	BackdropPath string  `json:"backdrop_path"`
 	ReleaseDate  string  `json:"release_date"`
 	FirstAirDate string  `json:"first_air_date"`
 	Overview     string  `json:"overview"`
@@ -50,6 +51,7 @@ type TitleResult struct {
 	MediaType   string  `json:"media_type"`
 	Title       string  `json:"title"`
 	PosterURL   string  `json:"poster_url"`
+	BackdropURL string  `json:"backdrop_url"`
 	Year        string  `json:"year"`
 	Overview    string  `json:"overview"`
 	VoteAverage float64 `json:"vote_average"`

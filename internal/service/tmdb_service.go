@@ -316,6 +316,11 @@ func mapTMDBListResponse(payload dto.TMDBListPayload, fallbackTMDBType string) *
 			posterURL = "https://image.tmdb.org/t/p/w500" + item.PosterPath
 		}
 
+		backdropURL := ""
+		if item.BackdropPath != "" {
+			backdropURL = "https://image.tmdb.org/t/p/w1280" + item.BackdropPath
+		}
+
 		rawType := item.MediaType
 		if rawType == "" {
 			rawType = fallbackTMDBType
@@ -326,6 +331,7 @@ func mapTMDBListResponse(payload dto.TMDBListPayload, fallbackTMDBType string) *
 			MediaType:   internalMediaType(rawType),
 			Title:       title,
 			PosterURL:   posterURL,
+			BackdropURL: backdropURL,
 			Year:        year,
 			Overview:    item.Overview,
 			VoteAverage: item.VoteAverage,
