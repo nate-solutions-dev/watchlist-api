@@ -33,7 +33,7 @@ func NewRouter(cfg *config.Config, healthController *controller.HealthController
 		},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization", "Accept"},
 		ExposeHeaders:    []string{"Content-Length"},
-		AllowCredentials: false,
+		AllowCredentials: true,
 		MaxAge:           12 * time.Hour,
 	}))
 	r.Use(middleware.RequestID(), gin.Logger(), gin.Recovery())
@@ -57,6 +57,7 @@ func NewRouter(cfg *config.Config, healthController *controller.HealthController
 		private.GET("/search", discoverController.SearchTitles)
 		private.GET("/discover/trending", discoverController.GetTrending)
 		private.GET("/discover/popular", discoverController.GetPopular)
+		private.GET("/title/:tmdb_id", discoverController.GetTitleDetail)
 	}
 
 	return r

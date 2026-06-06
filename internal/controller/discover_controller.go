@@ -102,6 +102,36 @@ func (dc *DiscoverController) GetPopular(c *gin.Context) {
 	c.JSON(http.StatusOK, dto.Response{Message: "success", Response: http.StatusOK, Result: resp})
 }
 
+// GetTitleDetail returns full detail for a single title by TMDB ID and media type.
+func (dc *DiscoverController) GetTitleDetail(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	tmdbID, err := strconv.Atoi(c.Param("tmdb_id"))
+	if err != nil || tmdbID < 1 {
+		logger.Warn(ctx, "DiscoverController.GetTitleDetail", "validation failed", "reason", "invalid tmdb_id")
+		c.JSON(http.StatusBadRequest, dto.Response{Message: "invalid tmdb_id", Response: http.StatusBadRequest})
+		return
+	}
+
+	mediaType := strings.ToLower(strings.TrimSpace(c.DefaultQuery("type", "movie")))
+	if !isValidDiscoverType(mediaType) {
+		logger.Warn(ctx, "DiscoverController.GetTitleDetail", "validation failed", "reason", "invalid type", "type", mediaType)
+		c.JSON(http.StatusBadRequest, dto.Response{Message: "invalid media type", Response: http.StatusBadRequest})
+		return
+	}
+
+	logger.Info(ctx, "DiscoverController.GetTitleDetail", "request received", "tmdb_id", tmdbID, "type", mediaType)
+
+	result, err := dc.tmdbService.GetTitleDetail(ctx, tmdbID, mediaType)
+	if err != nil {
+		logger.Error(ctx, "DiscoverController.GetTitleDetail", "fetch failed", "error", err.Error(), "tmdb_id", tmdbID)
+		c.JSON(http.StatusInternalServerError, dto.Response{Message: "fetch title detail failed", Response: http.StatusInternalServerError})
+		return
+	}
+
+	c.JSON(http.StatusOK, dto.Response{Message: "success", Response: http.StatusOK, Result: result})
+}
+
 // isValidDiscoverType checks whether media type is supported by discover handlers.
 func isValidDiscoverType(mediaType string) bool {
 	return mediaType == "movie" || mediaType == "show"

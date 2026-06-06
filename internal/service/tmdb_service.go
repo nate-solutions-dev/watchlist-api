@@ -21,6 +21,7 @@ type TMDBService interface {
 	SearchTitles(ctx context.Context, query string, mediaType string, page int) (*dto.TMDBListResponse, error)
 	GetTrending(ctx context.Context, mediaType string, page int) (*dto.TMDBListResponse, error)
 	GetPopular(ctx context.Context, mediaType string, page int) (*dto.TMDBListResponse, error)
+	GetTitleDetail(ctx context.Context, tmdbID int, mediaType string) (*dto.TitleDetailResult, error)
 }
 
 type tmdbService struct {
@@ -342,6 +343,108 @@ func mapTMDBListResponse(payload dto.TMDBListPayload, fallbackTMDBType string) *
 		Page:       payload.Page,
 		TotalPages: payload.TotalPages,
 		Results:    results,
+	}
+}
+
+// GetTitleDetail fetches full detail including credits for a single title.
+func (s *tmdbService) GetTitleDetail(ctx context.Context, tmdbID int, mediaType string) (*dto.TitleDetailResult, error) {
+	if s.cfg.TMDBAccessToken == "" {
+		return nil, fmt.Errorf("TMDB_ACCESS_TOKEN is required")
+	}
+
+	tmdbType := tmdbMediaType(mediaType)
+	endpoint := fmt.Sprintf("https://api.themoviedb.org/3/%s/%d?append_to_response=credits", tmdbType, tmdbID)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	if err != nil {
+		return nil, fmt.Errorf("build tmdb detail request: %w", err)
+	}
+
+	var payload dto.TMDBFullDetailResponse
+	if err := s.doTMDBRequest(req, &payload); err != nil {
+		return nil, err
+	}
+
+	return mapTMDBDetailResponse(payload, mediaType), nil
+}
+
+// mapTMDBDetailResponse converts a TMDB full detail payload to TitleDetailResult.
+func mapTMDBDetailResponse(payload dto.TMDBFullDetailResponse, mediaType string) *dto.TitleDetailResult {
+	title := payload.Title
+	if title == "" {
+		title = payload.Name
+	}
+
+	year := extractYear(payload.ReleaseDate)
+	if year == "" {
+		year = extractYear(payload.FirstAirDate)
+	}
+
+	posterURL := ""
+	if payload.PosterPath != "" {
+		posterURL = "https://image.tmdb.org/t/p/w500" + payload.PosterPath
+	}
+
+	backdropURL := ""
+	if payload.BackdropPath != "" {
+		backdropURL = "https://image.tmdb.org/t/p/w1280" + payload.BackdropPath
+	}
+
+	genres := make([]string, 0, len(payload.Genres))
+	for _, g := range payload.Genres {
+		genres = append(genres, g.Name)
+	}
+
+	cast := make([]dto.CastMember, 0, 15)
+	for i, c := range payload.Credits.Cast {
+		if i >= 15 {
+			break
+		}
+		profileURL := ""
+		if c.ProfilePath != "" {
+			profileURL = "https://image.tmdb.org/t/p/w185" + c.ProfilePath
+		}
+		cast = append(cast, dto.CastMember{
+			Name:       c.Name,
+			Character:  c.Character,
+			ProfileURL: profileURL,
+		})
+	}
+
+	directors := make([]string, 0)
+	for _, crew := range payload.Credits.Crew {
+		if crew.Job == "Director" {
+			directors = append(directors, crew.Name)
+		}
+	}
+
+	creators := make([]string, 0, len(payload.CreatedBy))
+	for _, c := range payload.CreatedBy {
+		creators = append(creators, c.Name)
+	}
+
+	runtime := payload.Runtime
+	if runtime == 0 && len(payload.EpisodeRunTime) > 0 {
+		runtime = payload.EpisodeRunTime[0]
+	}
+
+	return &dto.TitleDetailResult{
+		TMDBID:      payload.ID,
+		MediaType:   mediaType,
+		Title:       title,
+		Overview:    payload.Overview,
+		PosterURL:   posterURL,
+		BackdropURL: backdropURL,
+		Year:        year,
+		Runtime:     runtime,
+		Seasons:     payload.NumberOfSeasons,
+		Episodes:    payload.NumberOfEpisodes,
+		VoteAverage: payload.VoteAverage,
+		Genres:      genres,
+		Status:      payload.Status,
+		Cast:        cast,
+		Directors:   directors,
+		Creators:    creators,
 	}
 }
 
